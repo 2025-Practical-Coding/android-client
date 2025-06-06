@@ -138,6 +138,9 @@ class ChatViewModel(
                                 _teammates.value = _teammates.value + it.character
                             }
 
+                            // 결과 조건 체크 (팀원 2명 이상 또는 남은 캐릭터 없음)
+                            checkGameResult()
+
                             // 작별 인사 후 5초 대기 → 초기화
                             viewModelScope.launch {
                                 delay(5000)
@@ -152,9 +155,7 @@ class ChatViewModel(
                             _convLimit.value = it.conv_limit
                             _narrationMessage.value = it.narration
 
-                            if (_totalRemaining.value <= 1) {
-                                loadResult()
-                            }
+                            checkGameResult() // 조건 만족 시 결과 출력
                         }
                     }
 
@@ -169,6 +170,8 @@ class ChatViewModel(
                         _convCount.value = result.conv_count
                         _convLimit.value = result.conv_limit
                         _narrationMessage.value = result.narration
+
+                        checkGameResult()
                     }
 
                     is GameResultResponse -> {
@@ -189,17 +192,27 @@ class ChatViewModel(
         }
     }
 
+    // ────────────── 조건 만족 시 결과 출력 ──────────────
+
+    private fun checkGameResult() {
+        if (_teammates.value.size >= 2 || _totalRemaining.value <= 1) {
+            loadResult()
+        }
+    }
+
     // ────────────── 게임 종료 결과 요청 (/result) ──────────────
 
     private fun loadResult() {
         viewModelScope.launch {
             try {
                 val result = repository.getResult()
-                _chatMessages.value += ChatMessage(
-                    sender = SenderType.AI,
-                    message = "게임 종료: ${result.result.summary}",
-                    aiName = "SYSTEM"
-                )
+                if (result.game_over) {
+                    _chatMessages.value += ChatMessage(
+                        sender = SenderType.AI,
+                        message = "게임 종료: ${result.result.summary}",
+                        aiName = "SYSTEM"
+                    )
+                }
             } catch (e: Exception) {
                 _chatMessages.value += ChatMessage(
                     sender = SenderType.AI,
