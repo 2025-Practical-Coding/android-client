@@ -43,6 +43,9 @@ class ChatViewModel(
     private val _totalRemaining = MutableStateFlow(0)
     val totalRemaining: StateFlow<Int> = _totalRemaining
 
+    private val _teammates = MutableStateFlow<List<CharacterInfo>>(emptyList())
+    val teammates: StateFlow<List<CharacterInfo>> = _teammates
+
     private val fixedConvLimit = 7 // 서버 기준 대화 제한 고정값
 
     // ────────────── 게임 초기화 ──────────────
@@ -129,6 +132,11 @@ class ChatViewModel(
                                 aiSlug = it.character.slug,
                                 isGoodbye = true
                             )
+
+                            // → 팀원 영입 조건 (호감도 >= 10)
+                            if (_affinity.value >= 10 && !_teammates.value.any { tm -> tm.slug == it.character.slug }) {
+                                _teammates.value = _teammates.value + it.character
+                            }
 
                             // 작별 인사 후 5초 대기 → 초기화
                             viewModelScope.launch {
@@ -217,5 +225,6 @@ class ChatViewModel(
         _currentCharacter.value = null
         _selectedRegion.value = "숲"
         _totalRemaining.value = 0
+        _teammates.value = emptyList()
     }
 }

@@ -27,7 +27,6 @@ import com.example.chatrpg.viewmodel.ChatViewModel
 
 @Composable
 fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
-    // ───── 상태 수집 ─────
     val messages by viewModel.chatMessages.collectAsState()
     val opening by viewModel.openingMessage.collectAsState()
     val affinity by viewModel.affinity.collectAsState()
@@ -36,9 +35,10 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
     val currentChar by viewModel.currentCharacter.collectAsState()
     val selectedRegion by viewModel.selectedRegion.collectAsState()
     val narration by viewModel.narrationMessage.collectAsState()
+    val teammates by viewModel.teammates.collectAsState()
     val backgroundResId = getBackgroundForRegion(selectedRegion)
 
-    // ───── 상태 및 게임 종료 처리 ─────
+    var showTeammates by remember { mutableStateOf(false) }
     val lastAiMsg = messages.lastOrNull { it.sender == SenderType.AI }
     var isGameOver by remember { mutableStateOf(false) }
     var gameResult by remember { mutableStateOf("") }
@@ -47,9 +47,7 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
         viewModel.initializeGame()
     }
 
-    // ───── 배경 이미지 포함 전체 레이아웃 ─────
     Box(modifier = Modifier.fillMaxSize()) {
-        // ── 배경 이미지 ──
         Image(
             painter = painterResource(id = backgroundResId),
             contentDescription = null,
@@ -57,32 +55,27 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
             modifier = Modifier.matchParentSize()
         )
 
-        // ── 전체 UI 구성 ──
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // ───── 캐릭터 정보 카드 ─────
-            currentChar?.let { char ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp)
-                ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                currentChar?.let { char ->
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                        elevation = CardDefaults.cardElevation(6.dp)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = if (char.subtitle.isNotBlank()) {
-                                        "${char.name} (${char.subtitle})"
-                                    } else {
-                                        char.name
-                                    },
+                                    text = if (char.subtitle.isNotBlank()) "${char.name} (${char.subtitle})" else char.name,
                                     style = MaterialTheme.typography.titleMedium,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -91,9 +84,7 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                                     style = MaterialTheme.typography.labelSmall
                                 )
                             }
-
                             Spacer(modifier = Modifier.height(4.dp))
-
                             LinearProgressIndicator(
                                 progress = affinity / convLimit.toFloat().coerceAtLeast(1f),
                                 modifier = Modifier
@@ -102,10 +93,41 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                                     .clip(RoundedCornerShape(3.dp)),
                                 color = MaterialTheme.colorScheme.primary
                             )
-
                             Text(
                                 text = "대화 횟수: $convCount / $convLimit",
                                 style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(onClick = { showTeammates = !showTeammates }) {
+                    Text("팀원 보기")
+                }
+            }
+
+            if (showTeammates && teammates.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF222222).copy(alpha = 0.9f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "💠 현재 팀원 (${teammates.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFFFFEB3B)
+                        )
+                        teammates.forEach {
+                            Text(
+                                text = "- ${it.name}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White,
                                 modifier = Modifier.padding(top = 4.dp)
                             )
                         }
@@ -115,14 +137,12 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
 
             Divider()
 
-            // ───── 메시지 리스트 ─────
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 8.dp),
                 reverseLayout = false
             ) {
-                // ── 오프닝 메시지 ──
                 item {
                     if (opening.isNotBlank()) {
                         Box(
@@ -151,7 +171,6 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                     }
                 }
 
-                // ── 대화 메시지 반복 표시 ──
                 items(messages) { msg ->
                     ChatBubble(
                         message = msg.message,
@@ -159,7 +178,6 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                         aiName = msg.aiName
                     )
 
-                    // ── AI 메시지 이후 내레이션 출력 ──
                     if (msg == lastAiMsg && narration.isNotBlank()) {
                         Text(
                             text = "${msg.aiName}: $narration",
@@ -172,12 +190,10 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                                     blurRadius = 2f
                                 )
                             ),
-                            modifier = Modifier
-                                .padding(start = 16.dp, end = 16.dp, top = 4.dp)
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)
                         )
                     }
 
-                    // ── 작별 인사 시 자동 초기화 ──
                     if (msg.isGoodbye) {
                         LaunchedEffect("goodbye") {
                             kotlinx.coroutines.delay(10000)
@@ -185,7 +201,6 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                         }
                     }
 
-                    // ── 게임 종료 시 처리 ──
                     if (msg.message.contains("게임 종료")) {
                         isGameOver = true
                         gameResult = msg.message
@@ -193,7 +208,6 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                 }
             }
 
-            // ───── 게임 종료 여부에 따른 하단 UI ─────
             if (isGameOver) {
                 Box(
                     modifier = Modifier
@@ -208,7 +222,6 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                     )
                 }
             } else {
-                // ── 유저 입력 영역 ──
                 ChatInput(onSend = { userInput ->
                     viewModel.sendMessage(userInput)
                 })
