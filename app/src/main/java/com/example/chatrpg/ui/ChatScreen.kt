@@ -1,32 +1,29 @@
 package com.example.chatrpg.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatrpg.model.SenderType
 import com.example.chatrpg.ui.screen.chat.ChatBubble
 import com.example.chatrpg.ui.screen.chat.ChatInput
 import com.example.chatrpg.viewmodel.ChatViewModel
-import androidx.compose.foundation.background
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.sp
-
 
 @Composable
 fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
@@ -37,8 +34,11 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
     val convLimit by viewModel.convLimit.collectAsState()
     val currentChar by viewModel.currentCharacter.collectAsState()
     val selectedRegion by viewModel.selectedRegion.collectAsState()
-
+    val narration by viewModel.narrationMessage.collectAsState()
     val backgroundResId = getBackgroundForRegion(selectedRegion)
+
+    // 마지막 AI 메시지 추적
+    val lastAiMsg = messages.lastOrNull { it.sender == SenderType.AI }
 
     LaunchedEffect(Unit) {
         viewModel.loadOpening()
@@ -68,9 +68,7 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = if (char.subtitle.isNotBlank()) {
                                         "${char.name} (${char.subtitle})"
@@ -143,13 +141,30 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                     }
                 }
 
-
                 items(messages) { msg ->
                     ChatBubble(
                         message = msg.message,
                         isUser = msg.sender == SenderType.USER,
                         aiName = msg.aiName
                     )
+
+                    // ✅ 마지막 AI 메시지 아래에만 노란색 나레이션 출력
+                    if (msg == lastAiMsg && narration.isNotBlank()) {
+                        Text(
+                            text = "${msg.aiName}: $narration",
+                            color = Color(0xFFFFD54F),
+                            style = TextStyle(
+                                fontSize = 13.sp,
+                                shadow = Shadow(
+                                    color = Color.Black,
+                                    offset = Offset(1f, 1f),
+                                    blurRadius = 2f
+                                )
+                            ),
+                            modifier = Modifier
+                                .padding(start = 16.dp, end = 16.dp, top = 4.dp)
+                        )
+                    }
                 }
             }
 

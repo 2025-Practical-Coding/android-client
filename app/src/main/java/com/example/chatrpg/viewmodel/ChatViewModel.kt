@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import okhttp3.ResponseBody
 import retrofit2.Response
+import kotlinx.coroutines.delay
 
 class ChatViewModel : ViewModel() {
     private val gson = Gson()
@@ -35,6 +36,9 @@ class ChatViewModel : ViewModel() {
 
     private val _selectedRegion = MutableStateFlow("도시")
     val selectedRegion: StateFlow<String> = _selectedRegion
+
+    private val _narrationMessage = MutableStateFlow("")
+    val narrationMessage: StateFlow<String> = _narrationMessage
 
     fun loadOpening() {
         viewModelScope.launch {
@@ -86,7 +90,6 @@ class ChatViewModel : ViewModel() {
                     element.isJsonArray -> {
                         val list = gson.fromJson(raw, Array<ChatResponse>::class.java).toList()
 
-                        // 1. 첫 메시지: 일반 대화
                         list.getOrNull(0)?.let {
                             _chatMessages.value += ChatMessage(
                                 sender = SenderType.AI,
@@ -96,25 +99,28 @@ class ChatViewModel : ViewModel() {
                             )
                         }
 
-                        // 2. 두 번째 메시지: 작별 멘트
                         list.getOrNull(1)?.let {
                             _chatMessages.value += ChatMessage(
                                 sender = SenderType.AI,
                                 message = it.reply,
                                 aiName = it.character.name,
                                 aiSlug = it.character.slug,
-                                isGoodbye = true // <-- ChatMessage에 필드가 있다면 사용
+                                isGoodbye = true
                             )
 
-                            // 🎯 작별 멘트 후 다음 지역으로 이동
-                            loadNextRegion()
+                            // 🎯 작별 멘트 후 1초 대기, 초기화 후 다음 캐릭터/지역 Opening 호출
+                            viewModelScope.launch {
+                                delay(1000)
+                                _chatMessages.value = emptyList()
+                                loadOpening()
+                            }
                         }
 
-                        // 마지막 응답 기준으로 상태 갱신
                         list.lastOrNull()?.let {
                             _affinity.value = it.total_affinity
                             _convCount.value = it.conv_count
                             _convLimit.value = it.conv_limit
+                            _narrationMessage.value = it.narration
                         }
                     }
 
@@ -139,6 +145,7 @@ class ChatViewModel : ViewModel() {
                             _affinity.value = res.total_affinity
                             _convCount.value = res.conv_count
                             _convLimit.value = res.conv_limit
+                            _narrationMessage.value = res.narration
                         }
                     }
                 }
@@ -151,26 +158,6 @@ class ChatViewModel : ViewModel() {
             }
         }
     }
-
-    fun loadNextRegion() {
-        viewModelScope.launch {
-            try {
-                val response = RetrofitInstance.api.nextRegion()
-                if (response.isSuccessful) {
-                    val regionName = response.body()?.region ?: "알 수 없음"
-                    val characterSlugs = response.body()?.characters ?: emptyList()
-
-                    _selectedRegion.value = regionName
-                    // 필요 시 characterSlugs로도 추가 처리 가능
-                } else {
-                    _openingMessage.value = "지역 이동 실패: ${response.code()}"
-                }
-            } catch (e: Exception) {
-                _openingMessage.value = "지역 전환 실패: ${e.message}"
-            }
-        }
-    }
-
 
     fun setCharacter(character: CharacterInfo) {
         _currentCharacter.value = character
