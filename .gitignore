@@ -1,0 +1,24 @@
+
+# Gradle
+.gradle/
+build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+
+# Kotlin
+*.kotlin_module
+
+# Android Studio NDK
+.cxx/
+.externalNativeBuild/
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
