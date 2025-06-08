@@ -2,7 +2,7 @@ package com.example.chatrpg.model
 
 data class ChatResponse(
     val region: String,        // 현재 지역
-    val character: CharacterInfo, // AI NPC 캐릭터 정보
+    val character: CharacterSimple, // AI NPC 캐릭터 정보
     val user_input: String,    // 사용자의 입력 메시지
     val reply: String,         // AI의 응답
     val delta: Int,            // 변화량 (예: 친밀도 변화)
@@ -12,13 +12,15 @@ data class ChatResponse(
     val conv_limit: Int        // 대화 한계
 )
 
-data class CharacterInfo(
-    val slug: String,    // AI NPC 캐릭터 식별자
-    val name: String,    // 캐릭터 이름
-    val subtitle: String // 캐릭터 부제
+data class CharacterSimple(
+    val slug: String,
+    val name: String,
+    val subtitle: String
 )
 
 data class OpeningResponse(
     val opening: String,
     val slug: String
 )
+
+typealias ChatEndResponse = List<ChatResponse>

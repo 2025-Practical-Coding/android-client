@@ -14,63 +14,56 @@ class ChatViewModel(
     private val repository: ChatRepository = RealChatRepository()
 ) : ViewModel() {
 
-    // ────────────── 상태 관리 변수 ──────────────
-
-    private val _chatMessages = MutableStateFlow(emptyList<ChatMessage>())
+    // ───── 상태 관리 변수들 ─────
+    private val _chatMessages = MutableStateFlow(emptyList<ChatMessage>()) // 대화 메시지 리스트
     val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages
 
-    private val _openingMessage = MutableStateFlow("")
+    private val _openingMessage = MutableStateFlow("") // 지역/캐릭터 오프닝 메시지
     val openingMessage: StateFlow<String> = _openingMessage
 
-    private val _affinity = MutableStateFlow(0)
+    private val _affinity = MutableStateFlow(0) // 현재 캐릭터와의 친밀도
     val affinity: StateFlow<Int> = _affinity
 
-    private val _convCount = MutableStateFlow(0)
+    private val _convCount = MutableStateFlow(0) // 현재 캐릭터와의 대화 횟수
     val convCount: StateFlow<Int> = _convCount
 
-    private val _convLimit = MutableStateFlow(7)
+    private val _convLimit = MutableStateFlow(7) // 대화 제한 횟수
     val convLimit: StateFlow<Int> = _convLimit
 
-    private val _currentCharacter = MutableStateFlow<CharacterInfo?>(null)
+    private val _currentCharacter = MutableStateFlow<CharacterInfo?>(null) // 현재 대화 중인 캐릭터
     val currentCharacter: StateFlow<CharacterInfo?> = _currentCharacter
 
-    private val _selectedRegion = MutableStateFlow("숲")
+    private val _selectedRegion = MutableStateFlow("숲") // 현재 지역 이름
     val selectedRegion: StateFlow<String> = _selectedRegion
 
-    private val _narrationMessage = MutableStateFlow("")
+    private val _narrationMessage = MutableStateFlow("") // AI 내레이션 메시지
     val narrationMessage: StateFlow<String> = _narrationMessage
 
-    private val _totalRemaining = MutableStateFlow(0)
+    private val _totalRemaining = MutableStateFlow(0) // 전체 남은 대화 횟수
     val totalRemaining: StateFlow<Int> = _totalRemaining
 
-    private val _teammates = MutableStateFlow<List<CharacterInfo>>(emptyList())
+    private val _teammates = MutableStateFlow<List<CharacterInfo>>(emptyList()) // 팀원 목록
     val teammates: StateFlow<List<CharacterInfo>> = _teammates
 
-    private val fixedConvLimit = 7 // 서버 기준 대화 제한 고정값
+    private val fixedConvLimit = 7 // 고정 대화 제한값
 
-    // ────────────── 게임 초기화 ──────────────
-
+    // 게임 초기화 (상태 및 오프닝 불러오기)
     fun initializeGame() {
         viewModelScope.launch {
-            loadState()    // 상태 불러오기
-            loadOpening()  // 오프닝 메시지 불러오기
+            loadState()
+            loadOpening()
         }
     }
 
-    // ────────────── 서버 상태 불러오기 (/state) ──────────────
-
+    // 서버에서 현재 게임 상태 (/state) 불러오기
     private suspend fun loadState() {
         try {
             val state = repository.getState()
             _selectedRegion.value = state.region
-            _totalRemaining.value = state.total_remaining
+            _totalRemaining.value = state.totalRemaining
 
-            state.current_character?.let { char ->
-                _currentCharacter.value = CharacterInfo(
-                    slug = char.slug,
-                    name = char.name,
-                    subtitle = char.subtitle
-                )
+            state.currentCharacter?.let { char ->
+                _currentCharacter.value = char
                 _affinity.value = char.affinity
             } ?: run {
                 _currentCharacter.value = null
@@ -78,15 +71,14 @@ class ChatViewModel(
             }
 
             _convLimit.value = fixedConvLimit
-            _convCount.value = fixedConvLimit - state.current_remaining
+            _convCount.value = fixedConvLimit - state.currentRemaining
 
         } catch (e: Exception) {
             _openingMessage.value = "서버 연결 실패: ${e.message}"
         }
     }
 
-    // ────────────── 오프닝 메시지 불러오기 (/opening) ──────────────
-
+    // 서버에서 오프닝 메시지 (/opening) 불러오기
     fun loadOpening() {
         viewModelScope.launch {
             try {
@@ -98,8 +90,7 @@ class ChatViewModel(
         }
     }
 
-    // ────────────── 유저 입력 처리 및 응답 수신 (/chat) ──────────────
-
+    // 사용자 입력 전송 및 응답 처리 (/chat)
     fun sendMessage(userInput: String) {
         _chatMessages.value += ChatMessage(
             sender = SenderType.USER,
@@ -115,6 +106,7 @@ class ChatViewModel(
                     is List<*> -> {
                         val list = result.filterIsInstance<ChatResponse>()
 
+                        // 첫 번째 응답 처리
                         list.getOrNull(0)?.let {
                             _chatMessages.value += ChatMessage(
                                 sender = SenderType.AI,
@@ -124,6 +116,7 @@ class ChatViewModel(
                             )
                         }
 
+                        // 작별 인사 응답 처리
                         list.getOrNull(1)?.let {
                             _chatMessages.value += ChatMessage(
                                 sender = SenderType.AI,
@@ -133,15 +126,18 @@ class ChatViewModel(
                                 isGoodbye = true
                             )
 
-                            // → 팀원 영입 조건 (호감도 >= 10)
-                            if (_affinity.value >= 10 && !_teammates.value.any { tm -> tm.slug == it.character.slug }) {
-                                _teammates.value = _teammates.value + it.character
+                            if (_affinity.value >= 5 && !_teammates.value.any { tm -> tm.slug == it.character.slug }) {
+                                _teammates.value = _teammates.value + CharacterInfo(
+                                    slug = it.character.slug,
+                                    name = it.character.name,
+                                    subtitle = it.character.subtitle,
+                                    affinity = it.total_affinity
+                                )
                             }
 
-                            // 결과 조건 체크 (팀원 2명 이상 또는 남은 캐릭터 없음)
                             checkGameResult()
 
-                            // 작별 인사 후 5초 대기 → 초기화
+                            // 5초 후 게임 재초기화
                             viewModelScope.launch {
                                 delay(5000)
                                 _chatMessages.value = emptyList()
@@ -149,16 +145,18 @@ class ChatViewModel(
                             }
                         }
 
+                        // 마지막 응답에서 상태 업데이트
                         list.lastOrNull()?.let {
                             _affinity.value = it.total_affinity
                             _convCount.value = it.conv_count
                             _convLimit.value = it.conv_limit
                             _narrationMessage.value = it.narration
 
-                            checkGameResult() // 조건 만족 시 결과 출력
+                            checkGameResult()
                         }
                     }
 
+                    // 단일 응답 처리 (기본 대화)
                     is ChatResponse -> {
                         _chatMessages.value += ChatMessage(
                             sender = SenderType.AI,
@@ -173,14 +171,6 @@ class ChatViewModel(
 
                         checkGameResult()
                     }
-
-                    is GameResultResponse -> {
-                        _chatMessages.value += ChatMessage(
-                            sender = SenderType.AI,
-                            message = "게임 종료: ${result.result.summary}",
-                            aiName = "SYSTEM"
-                        )
-                    }
                 }
             } catch (e: Exception) {
                 _chatMessages.value += ChatMessage(
@@ -192,21 +182,19 @@ class ChatViewModel(
         }
     }
 
-    // ────────────── 조건 만족 시 결과 출력 ──────────────
-
+    // 게임 종료 조건 체크 (팀원 2명 이상 또는 남은 대화 거의 없음)
     private fun checkGameResult() {
         if (_teammates.value.size >= 2 || _totalRemaining.value <= 1) {
             loadResult()
         }
     }
 
-    // ────────────── 게임 종료 결과 요청 (/result) ──────────────
-
+    // 서버로부터 최종 결과 요청 (/result)
     private fun loadResult() {
         viewModelScope.launch {
             try {
                 val result = repository.getResult()
-                if (result.game_over) {
+                if (result.gameOver) {
                     _chatMessages.value += ChatMessage(
                         sender = SenderType.AI,
                         message = "게임 종료: ${result.result.summary}",
@@ -223,14 +211,12 @@ class ChatViewModel(
         }
     }
 
-    // ────────────── 수동 캐릭터 설정 (테스트용 등) ──────────────
-
+    // 테스트용 수동 캐릭터 설정
     fun setCharacter(character: CharacterInfo) {
         _currentCharacter.value = character
     }
 
-    // ────────────── 전체 상태 초기화 ──────────────
-
+    // 전체 상태 초기화 (게임 재시작 등)
     fun resetConversation() {
         _chatMessages.value = emptyList()
         _convCount.value = 0
