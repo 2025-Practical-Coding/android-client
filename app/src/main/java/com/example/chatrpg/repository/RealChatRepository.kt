@@ -26,11 +26,6 @@ class RealChatRepository : ChatRepository {
         return response.body() ?: throw Exception("State 요청 실패: ${response.code()} - ${response.message()}")
     }
 
-    override suspend fun nextRegion(): NextRegionResponse {
-        val response = RetrofitInstance.api.nextRegion()
-        return response.body() ?: throw Exception("NextRegion 요청 실패: ${response.code()} - ${response.message()}")
-    }
-
     override suspend fun getResult(): GameResultResponse {
         val response = RetrofitInstance.api.getResult()
         return response.body() ?: throw Exception("Result 요청 실패: ${response.code()} - ${response.message()}")

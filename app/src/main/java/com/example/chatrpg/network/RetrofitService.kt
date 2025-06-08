@@ -32,13 +32,6 @@ interface RetrofitService {
     suspend fun getState(): Response<StateResponse>
 
     /**
-     * 다음 지역으로 이동 요청
-     * 응답: ChatResponse 또는 GameResultResponse 등의 유동적 구조
-     */
-    @POST("/next")
-    suspend fun nextRegion(): Response<NextRegionResponse>
-
-    /**
      * 게임 결과 요청
      * 응답: GameResultResponse
      */

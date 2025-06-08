@@ -24,12 +24,6 @@ interface ChatRepository {
     suspend fun getState(): StateResponse
 
     /**
-     * 다음 지역으로 이동
-     * 경우에 따라 ChatResponse 또는 GameResultResponse 등 반환
-     */
-    suspend fun nextRegion(): Any // ChatResponse | List<ChatResponse> | GameResultResponse
-
-    /**
      * 게임 종료 여부 및 최종 결과
      */
     suspend fun getResult(): GameResultResponse

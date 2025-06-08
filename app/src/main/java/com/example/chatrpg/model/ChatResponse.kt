@@ -15,7 +15,8 @@ data class ChatResponse(
 data class CharacterSimple(
     val slug: String,
     val name: String,
-    val subtitle: String
+    val subtitle: String,
+    val story: String
 )
 
 data class OpeningResponse(

@@ -50,6 +50,7 @@ class ChatViewModel(
     // 게임 초기화 (상태 및 오프닝 불러오기)
     fun initializeGame() {
         viewModelScope.launch {
+            resetConversation()
             loadState()
             loadOpening()
         }
@@ -184,7 +185,7 @@ class ChatViewModel(
 
     // 게임 종료 조건 체크 (팀원 2명 이상 또는 남은 대화 거의 없음)
     private fun checkGameResult() {
-        if (_teammates.value.size >= 2 || _totalRemaining.value <= 1) {
+        if (_totalRemaining.value <= 1 && _chatMessages.value.any { it.isGoodbye }) {
             loadResult()
         }
     }
@@ -194,10 +195,10 @@ class ChatViewModel(
         viewModelScope.launch {
             try {
                 val result = repository.getResult()
-                if (result.gameOver) {
+                if (result.game_over) {
                     _chatMessages.value += ChatMessage(
                         sender = SenderType.AI,
-                        message = "게임 종료: ${result.result.summary}",
+                        message = "게임 종료: ${result.narration}",
                         aiName = "SYSTEM"
                     )
                 }
@@ -224,6 +225,5 @@ class ChatViewModel(
         _currentCharacter.value = null
         _selectedRegion.value = "숲"
         _totalRemaining.value = 0
-        _teammates.value = emptyList()
     }
 }
