@@ -10,5 +10,6 @@ data class ChatMessage(
 
 enum class SenderType {
     USER,
-    AI
+    AI,
+    SYSTEM
 }
